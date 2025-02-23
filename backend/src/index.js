@@ -14,6 +14,9 @@ const startServer = async () => {
   try {
     await connectDB(); // Wait for DB to connect
 
+    // Middleware
+    app.use(express.json());
+    app.use(cookieParser());
     app.use(
       cors({
         origin: `${process.env.CLIENT_URL}`,
@@ -21,18 +24,9 @@ const startServer = async () => {
       })
     );
 
-    // Middleware
-    app.use(express.json());
-    app.use(cookieParser());
-
     // Routes
     app.use("/api/auth", authRoutes);
     app.use("/api/messages", messageRoutes);
-
-    //route not found
-    app.use(async (req, res, next) => {
-      next(createError.NotFound());
-    });
 
     if (process.env.NODE_ENV === "production") {
       app.use(express.static(path.join(__dirname, "../frontend/dist")));
@@ -41,6 +35,11 @@ const startServer = async () => {
         res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
       });
     }
+
+    //route not found
+    app.use(async (req, res, next) => {
+      next(createError.NotFound());
+    });
 
     //error middleware
     app.use((err, req, res, next) => {
