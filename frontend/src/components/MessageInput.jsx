@@ -8,6 +8,7 @@ import { Image, Send, X } from "lucide-react";
 
 export default function MessageInput() {
   const { selectedUser } = useChatStore();
+  const queryClient = useQueryClient();
   const { isPending, mutate: sendMessageTrigger } = useMutation({
     mutationFn: sendMessage,
     onSuccess: (data) => {
@@ -16,6 +17,17 @@ export default function MessageInput() {
       setText("");
       setImagePreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+
+      if (selectedUser?._id) {
+        queryClient.setQueryData(["getMessages", selectedUser._id], (oldData) => {
+          const existingMessages = oldData?.messages || [];
+          if (existingMessages.some((message) => message._id === data.message._id)) return oldData;
+          return {
+            ...(oldData || { success: true }),
+            messages: [...existingMessages, data.message],
+          };
+        });
+      }
     },
     onError: (error) => {
       toast.error(error);
@@ -43,6 +55,7 @@ export default function MessageInput() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
+    if (!selectedUser) return;
     if (!text.trim() && !imagePreview) return;
     const body = { text: text.trim(), image: imagePreview };
     sendMessageTrigger({ id: selectedUser._id, data: body });

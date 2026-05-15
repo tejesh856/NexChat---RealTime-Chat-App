@@ -7,15 +7,18 @@ import LoginPage from "./pages/LoginPage";
 import SettingsPage from "./pages/SettingsPage";
 import ProfilePage from "./pages/ProfilePage";
 import { useAuthStore } from "./store/useAuthStore";
+import { useChatStore } from "./store/useChatStore";
 import { Loader } from "lucide-react";
 import { Toaster } from "react-hot-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckAuth } from "./services/user";
 import { useThemeStore } from "./store/useThemeStore";
 
 function App() {
-  const { authUser, setAuthUser, connectSocket, onlineUsers } = useAuthStore();
+  const { authUser, setAuthUser, connectSocket, socket } = useAuthStore();
   const { theme } = useThemeStore();
+  const { selectedUser, incrementUnreadCount, clearUnreadCount } = useChatStore();
+  const queryClient = useQueryClient();
 
   const { isPending, data, isError, refetch } = useQuery({
     queryKey: ["checkAuth"],
@@ -31,6 +34,38 @@ function App() {
       setAuthUser(null);
     }
   }, [data, isError, setAuthUser]);
+
+  useEffect(() => {
+    if (!socket || !authUser) return;
+
+    const handleIncomingMessage = (message) => {
+      if (!message || !message.senderId || !message.receiverId) return;
+
+      const isOwnMessage = message.senderId === authUser._id;
+      const conversationPartner = isOwnMessage ? message.receiverId : message.senderId;
+      const queryKey = ["getMessages", conversationPartner];
+
+      queryClient.setQueryData(queryKey, (oldData) => {
+        const existingMessages = oldData?.messages || [];
+        if (existingMessages.some((msg) => msg._id === message._id)) return oldData;
+        return {
+          ...(oldData || { success: true }),
+          messages: [...existingMessages, message],
+        };
+      });
+
+      if (selectedUser?._id === conversationPartner) {
+        if (!isOwnMessage) {
+          clearUnreadCount(conversationPartner);
+        }
+      } else if (!isOwnMessage) {
+        incrementUnreadCount(conversationPartner);
+      }
+    };
+
+    socket.on("newMessage", handleIncomingMessage);
+    return () => socket.off("newMessage", handleIncomingMessage);
+  }, [socket, authUser, selectedUser, incrementUnreadCount, clearUnreadCount, queryClient]);
 
   useEffect(() => {
     console.log("authUser", authUser);

@@ -11,40 +11,22 @@ import { formatMessageTime, getInitials } from "../lib/utils";
 export default function ChatContainer() {
   const queryClient = useQueryClient();
   const messageEndRef = useRef(null);
-  const { selectedUser, subscribeToMessages, unsubscribeFromMessages } =
-    useChatStore();
+  const { selectedUser } = useChatStore();
   const { authUser } = useAuthStore();
+  
+  useEffect(() => {
+    if (!selectedUser?._id) return;
+    queryClient.invalidateQueries({
+      queryKey: ["getMessages", selectedUser._id],
+    });
+  }, [selectedUser?._id, queryClient]);
+
   const { isPending, data, isError } = useQuery({
     queryKey: ["getMessages", selectedUser?._id],
     queryFn: () => getMessages(selectedUser?._id),
     staleTime: 1000 * 60 * 5,
     enabled: !!authUser && !!selectedUser?._id,
   });
-
-  useEffect(() => {
-    if (!selectedUser) return;
-
-    const messageHandler = (newMessage) => {
-      if (
-        newMessage.senderId === selectedUser._id ||
-        newMessage.receiverId === selectedUser._id
-      ) {
-        queryClient.setQueryData(
-          ["getMessages", selectedUser._id],
-          (oldData) => ({
-            ...oldData,
-            messages: [...(oldData?.messages || []), newMessage],
-          })
-        );
-      }
-    };
-
-    const cleanup = subscribeToMessages(messageHandler);
-    return () => {
-      cleanup?.();
-      unsubscribeFromMessages();
-    };
-  }, [selectedUser, queryClient, subscribeToMessages]);
 
   useEffect(() => {
     if (messageEndRef.current && data?.messages) {
