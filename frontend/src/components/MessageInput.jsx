@@ -4,7 +4,7 @@ import { sendMessage } from "../services/message";
 import toast from "react-hot-toast";
 import { useChatStore } from "../store/useChatStore";
 import { convertToBase64 } from "../lib/utils";
-import { Image, Send, X } from "lucide-react";
+import { Image, Send, X, Smile } from "lucide-react";
 
 export default function MessageInput() {
   const { selectedUser } = useChatStore();
@@ -12,12 +12,6 @@ export default function MessageInput() {
   const { isPending, mutate: sendMessageTrigger } = useMutation({
     mutationFn: sendMessage,
     onSuccess: (data) => {
-      toast.success("Message Sent successful! 🎉");
-      console.log("send message successful:", data);
-      setText("");
-      setImagePreview(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-
       if (selectedUser?._id) {
         queryClient.setQueryData(["getMessages", selectedUser._id], (oldData) => {
           const existingMessages = oldData?.messages || [];
@@ -28,6 +22,11 @@ export default function MessageInput() {
           };
         });
       }
+      toast.success("Message Sent successful! 🎉");
+      console.log("send message successful:", data);
+      setText("");
+      setImagePreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     },
     onError: (error) => {
       toast.error(error);
@@ -36,7 +35,27 @@ export default function MessageInput() {
   });
   const [text, setText] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
+
+  const emojis = [
+    "😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂",
+    "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩",
+    "😘", "😗", "😚", "😙", "🥲", "😋", "😛", "😜",
+    "🤪", "😌", "😔", "😑", "😐", "😶", "🤫", "😏",
+    "😒", "🙄", "😬", "🤥", "😌", "😔", "😪", "🤤",
+    "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "🤬",
+    "🤡", "🤠", "🥳", "😎", "🤓", "🧐", "😕", "😟",
+    "🙁", "☹️", "😮", "😯", "😲", "😳", "🥺", "😦",
+    "😧", "😨", "😰", "😥", "😢", "😭", "😱", "😖",
+    "😣", "😞", "😓", "😩", "😫", "🥱", "😤", "😡",
+    "😠", "🤬", "😈", "👿", "💀", "☠️", "💩", "🤡",
+    "👹", "👺", "👻", "👽", "👾", "🤖", "😺", "😸",
+    "😹", "😻", "😼", "😽", "🙀", "😿", "😾", "🤲",
+    "👐", "🙌", "👏", "🙏", "👍", "👎", "👊", "✊",
+    "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+    "🎉", "🎊", "🎈", "🎁", "⭐", "✨", "🌟", "💫",
+  ];
 
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
@@ -53,11 +72,17 @@ export default function MessageInput() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleEmojiSelect = (emoji) => {
+    setText((prevText) => prevText + emoji);
+    setShowEmojiPicker(false);
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!selectedUser) return;
-    if (!text.trim() && !imagePreview) return;
-    const body = { text: text.trim(), image: imagePreview };
+    const trimmedText = text.trim();
+    if (!trimmedText && !imagePreview) return;
+    const body = { text: trimmedText, image: imagePreview };
     sendMessageTrigger({ id: selectedUser._id, data: body });
   };
   return (
@@ -113,6 +138,13 @@ export default function MessageInput() {
           </button>
         </div>
         <button
+          type="button"
+          className="btn btn-circle text-zinc-400 hover:text-base-content"
+          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+        >
+          <Smile size={20} />
+        </button>
+        <button
           type="submit"
           className="btn btn-sm btn-circle"
           disabled={!text.trim() && !imagePreview}
@@ -120,6 +152,44 @@ export default function MessageInput() {
           <Send size={22} />
         </button>
       </form>
+
+      {showEmojiPicker && (
+        <div className="modal modal-open">
+          <div className="modal-box w-96 max-w-xs">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-lg">Select Emoji</h3>
+              <button
+                onClick={() => setShowEmojiPicker(false)}
+                className="btn btn-sm btn-circle btn-ghost"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-8 gap-2 max-h-64 overflow-y-auto">
+              {emojis.map((emoji, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleEmojiSelect(emoji)}
+                  className="btn btn-ghost btn-lg text-3xl hover:bg-base-300 flex items-center justify-center"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <div className="modal-action">
+              <button
+                onClick={() => setShowEmojiPicker(false)}
+                className="btn btn-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <form method="dialog" className="modal-backdrop" onClick={() => setShowEmojiPicker(false)}>
+            <button>Close</button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
